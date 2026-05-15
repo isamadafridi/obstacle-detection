@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>YOLOv8 Obstacle Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0b0f1a; --surface: #131929; --surface2: #1a2235;
+    --border: rgba(99,179,237,0.12); --border-glow: rgba(99,179,237,0.35);
+    --accent: #4af0b0; --accent2: #38bdf8;
+    --text: #e8f0fe; --muted: #7a90b8;
+    --danger: #f87171; --warning: #fbbf24;
+    --mono: 'Space Mono', monospace; --sans: 'DM Sans', sans-serif;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 0 16px 60px; }
+  header { width: 100%; max-width: 900px; padding: 36px 0 28px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); margin-bottom: 36px; }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon { width: 40px; height: 40px; border: 1.5px solid var(--accent); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .logo-text { font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+  .logo-text span { display: block; font-size: 15px; color: var(--text); letter-spacing: 0.04em; }
+  .status-pill { display: flex; align-items: center; gap: 7px; background: rgba(74,240,176,0.07); border: 1px solid rgba(74,240,176,0.2); border-radius: 100px; padding: 6px 14px; font-size: 12px; font-family: var(--mono); color: var(--accent); }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.85)} }
+  .main-grid { width: 100%; max-width: 900px; display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+
+  .canvas-wrap { background: var(--surface); border: 1.5px dashed var(--border-glow); border-radius: 18px; min-height: 340px; position: relative; overflow: hidden; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: border-color 0.25s; }
+  .canvas-wrap:hover { border-color: var(--accent); }
+  .canvas-wrap.has-image { border-style: solid; cursor: default; min-height: unset; }
+  .upload-placeholder { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 40px; }
+  .upload-icon { width: 56px; height: 56px; background: rgba(74,240,176,0.08); border-radius: 14px; display: flex; align-items: center; justify-content: center; }
+  .upload-label { font-size: 15px; font-weight: 500; }
+  .upload-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  #baseImage { display: none; width: 100%; height: auto; display: block; }
+  #overlayCanvas { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+  #imageInput { display: none; }
+
+  .right-panel { display: flex; flex-direction: column; gap: 14px; }
+  #detectBtn { width: 100%; padding: 16px; background: linear-gradient(135deg,#4af0b0,#38bdf8); color: #0b0f1a; font-family: var(--mono); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: none; border-radius: 12px; cursor: pointer; transition: opacity .2s, transform .15s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  #detectBtn:hover { opacity: .9; transform: translateY(-1px); }
+  #detectBtn:active { transform: translateY(0); }
+  #detectBtn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+  .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .stat-label { font-size: 11px; font-family: var(--mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; }
+  .stat-value { font-size: 22px; font-weight: 600; font-family: var(--mono); color: var(--accent); }
+  .results-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .results-header { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 11px; font-family: var(--mono); color: var(--muted); letter-spacing: .08em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+  .results-body { padding: 8px; display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow-y: auto; }
+  .results-body::-webkit-scrollbar { width: 4px; }
+  .results-body::-webkit-scrollbar-thumb { background: var(--border-glow); border-radius: 4px; }
+  .det-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 9px; background: var(--surface2); animation: slideIn .3s ease forwards; opacity: 0; }
+  @keyframes slideIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+  .det-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .det-rank { font-size: 10px; font-family: var(--mono); color: var(--muted); min-width: 16px; }
+  .det-class { flex: 1; font-size: 13px; font-weight: 500; text-transform: capitalize; }
+  .conf-bar-wrap { display: flex; align-items: center; gap: 7px; }
+  .conf-bar-bg { width: 52px; height: 4px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+  .conf-bar-fill { height: 100%; border-radius: 4px; }
+  .conf-pct { font-size: 11px; font-family: var(--mono); min-width: 34px; text-align: right; }
+  .spinner { width: 18px; height: 18px; border: 2px solid rgba(11,15,26,.3); border-top-color: #0b0f1a; border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .empty-state { padding: 24px 16px; text-align: center; color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); background: #1e1212; border: 1px solid rgba(248,113,113,.3); color: var(--danger); padding: 12px 20px; border-radius: 10px; font-size: 13px; font-family: var(--mono); transition: transform .3s; z-index: 999; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  footer { width: 100%; max-width: 900px; margin-top: 32px; padding-top: 18px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; font-size: 11px; font-family: var(--mono); color: var(--muted); }
+  @media(max-width:680px) { .main-grid{grid-template-columns:1fr} header{flex-direction:column;gap:14px} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4af0b0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="2" width="20" height="20" rx="3"/>
+        <path d="M7 7h.01M17 7h.01M12 12l-2-2 2-2 2 2z"/>
+        <circle cx="12" cy="17" r="2"/>
+      </svg>
+    </div>
+    <div class="logo-text"><span>YOLOv8</span>Obstacle Detection</div>
+  </div>
+  <div class="status-pill"><div class="pulse"></div>Model Ready</div>
+</header>
+
+<div class="main-grid">
+
+  <div class="canvas-wrap" id="dropZone" onclick="handleZoneClick()">
+    <div class="upload-placeholder" id="placeholder">
+      <div class="upload-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4af0b0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <div class="upload-label">Drop image or click to upload</div>
+      <div class="upload-sub">JPG · PNG · WEBP · BMP</div>
+    </div>
+    <img id="baseImage" alt="Uploaded" />
+    <canvas id="overlayCanvas"></canvas>
+    <input type="file" id="imageInput" accept="image/*" />
+  </div>
+
+  <div class="right-panel">
+    <button id="detectBtn" onclick="uploadImage()" disabled>
+      <svg id="btnIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <span id="btnText">Detect Objects</span>
+    </button>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Objects Found</div>
+        <div class="stat-value" id="statCount">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Top Confidence</div>
+        <div class="stat-value" id="statConf">—</div>
+      </div>
+    </div>
+
+    <div class="results-panel">
+      <div class="results-header">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Detection Log
+      </div>
+      <div class="results-body" id="results">
+        <div class="empty-state">Awaiting image input…</div>
+      </div>
+      <div style="padding: 8px;">
+        <button onclick="resetImage()" style="width:100%; padding:10px; background:transparent; color:var(--muted); font-family:var(--mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; border:1px solid var(--border); border-radius:9px; cursor:pointer; transition:all 0.2s;"
+          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+          ↺ &nbsp; Check Another Image
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>YOLOv8 · Local Inference · v2.0</span>
+  <span>API → 127.0.0.1:8000/predict</span>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const imageInput  = document.getElementById('imageInput');
+const baseImage   = document.getElementById('baseImage');
+const canvas      = document.getElementById('overlayCanvas');
+const ctx         = canvas.getContext('2d');
+const dropZone    = document.getElementById('dropZone');
+const placeholder = document.getElementById('placeholder');
+const detectBtn   = document.getElementById('detectBtn');
+const btnText     = document.getElementById('btnText');
+const results     = document.getElementById('results');
+const statCount   = document.getElementById('statCount');
+const statConf    = document.getElementById('statConf');
+const toast       = document.getElementById('toast');
+
+const PALETTE = ['#4af0b0','#38bdf8','#f87171','#fbbf24','#a78bfa','#fb923c','#34d399','#e879f9','#60a5fa','#facc15'];
+const classColors = {};
+let colorIdx = 0;
+
+function getColor(cls) {
+  if (!classColors[cls]) { classColors[cls] = PALETTE[colorIdx++ % PALETTE.length]; }
+  return classColors[cls];
+}
+
+function handleZoneClick() {
+  if (!dropZone.classList.contains('has-image')) imageInput.click();
+}
+
+function resetImage() {
+  baseImage.style.display = 'none';
+  canvas.style.display = 'none';
+  placeholder.style.display = 'flex';
+  dropZone.classList.remove('has-image');
+  dropZone.style.minHeight = '340px';
+  imageInput.value = '';
+  clearCanvas();
+  results.innerHTML = '<div class="empty-state">Awaiting image input…</div>';
+  statCount.textContent = statConf.textContent = '—';
+  detectBtn.disabled = true;
+}
+
+function showImage(file) {
+  const url = URL.createObjectURL(file);
+  baseImage.onload = () => {
+    placeholder.style.display = 'none';
+    baseImage.style.display = 'block';
+    canvas.style.display = 'block';
+    dropZone.classList.add('has-image');
+    syncCanvas();
+    detectBtn.disabled = false;
+  };
+  baseImage.src = url;
+  clearCanvas();
+  results.innerHTML = '<div class="empty-state">Image loaded — click Detect</div>';
+  statCount.textContent = statConf.textContent = '—';
+}
+
+function syncCanvas() {
+  canvas.width  = baseImage.clientWidth;
+  canvas.height = baseImage.clientHeight;
+}
+
+function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+imageInput.addEventListener('change', () => { if (imageInput.files[0]) showImage(imageInput.files[0]); });
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent)'; });
+dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = ''; });
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.style.borderColor = '';
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) { imageInput.files = e.dataTransfer.files; showImage(f); }
+});
+window.addEventListener('resize', () => { if (dropZone.classList.contains('has-image')) syncCanvas(); });
+
+function showToast(msg) {
+  toast.textContent = msg; toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3400);
+}
+
+function setLoading(on) {
+  detectBtn.disabled = on;
+  if (on) {
+    document.getElementById('btnIcon').outerHTML = '<div class="spinner" id="btnIcon"></div>';
+    btnText.textContent = 'Analyzing…';
+  } else {
+    document.getElementById('btnIcon').outerHTML = `<svg id="btnIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+    btnText.textContent = 'Detect Objects';
+    detectBtn.disabled = false;
+  }
+}
+
+function drawBoxes(dets) {
+  syncCanvas();
+  clearCanvas();
+  const sx = canvas.width  / baseImage.naturalWidth;
+  const sy = canvas.height / baseImage.naturalHeight;
+
+  dets.forEach(det => {
+    if (!det.bbox) return;
+    const [x1, y1, x2, y2] = det.bbox;
+    const cx = x1 * sx, cy = y1 * sy;
+    const cw = (x2 - x1) * sx, ch = (y2 - y1) * sy;
+    const color = getColor(det.class);
+    const label = `${det.class}  ${(det.confidence * 100).toFixed(1)}%`;
+
+    // Translucent fill
+    ctx.fillStyle = color + '18';
+    ctx.fillRect(cx, cy, cw, ch);
+
+    // Glowing border
+    ctx.shadowColor = color; ctx.shadowBlur = 12;
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.strokeRect(cx, cy, cw, ch);
+    ctx.shadowBlur = 0;
+
+    // Corner brackets
+    const cs = Math.min(16, cw * 0.18, ch * 0.18);
+    ctx.lineWidth = 3; ctx.strokeStyle = color;
+    [[cx,cy,1,1],[cx+cw,cy,-1,1],[cx,cy+ch,1,-1],[cx+cw,cy+ch,-1,-1]].forEach(([ox,oy,dx,dy]) => {
+      ctx.beginPath(); ctx.moveTo(ox+dx*cs, oy); ctx.lineTo(ox, oy); ctx.lineTo(ox, oy+dy*cs); ctx.stroke();
+    });
+
+    // Label pill
+    ctx.font = 'bold 11px "Space Mono", monospace';
+    const tw = ctx.measureText(label).width;
+    const px = 8, lh = 20;
+    const lx = cx, ly = cy > lh + 4 ? cy - lh - 4 : cy + 4;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.roundRect(lx, ly, tw + px * 2, lh, 4);
+    ctx.fill();
+    ctx.fillStyle = '#0b0f1a';
+    ctx.fillText(label, lx + px, ly + lh - 5);
+  });
+}
+
+async function uploadImage() {
+  const file = imageInput.files[0];
+  if (!file) { showToast('Please select an image first'); return; }
+
+  setLoading(true);
+  results.innerHTML = '';
+  statCount.textContent = statConf.textContent = '—';
+  clearCanvas();
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const res = await fetch('https://isamadafridi-obstacle_detection.hf.space/predict', { method: 'POST', body: fd });
+    if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+    const data = await res.json();
+    const dets = (data.detections || []).sort((a, b) => b.confidence - a.confidence);
+
+    if (!dets.length) {
+      results.innerHTML = '<div class="empty-state">No objects detected</div>';
+      statCount.textContent = '0';
+    } else {
+      statCount.textContent = dets.length;
+      statConf.textContent  = (dets[0].confidence * 100).toFixed(0) + '%';
+      drawBoxes(dets);
+
+      dets.forEach((det, i) => {
+        const pct = (det.confidence * 100).toFixed(1);
+        const color = getColor(det.class);
+        const el = document.createElement('div');
+        el.className = 'det-item';
+        el.style.animationDelay = `${i * 55}ms`;
+        el.innerHTML = `
+          <span class="det-rank">${String(i+1).padStart(2,'0')}</span>
+          <span class="det-dot" style="background:${color}"></span>
+          <span class="det-class">${det.class}</span>
+          <div class="conf-bar-wrap">
+            <div class="conf-bar-bg"><div class="conf-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+            <span class="conf-pct" style="color:${color}">${pct}%</span>
+          </div>`;
+        results.appendChild(el);
+      });
+    }
+  } catch (err) {
+    results.innerHTML = `<div class="empty-state" style="color:var(--danger)">Connection failed — is the server running?</div>`;
+    showToast('Error: ' + err.message);
+  } finally {
+    setLoading(false);
+  }
+}
+</script>
+</body>
+</html>
