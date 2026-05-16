@@ -137,7 +137,7 @@ project/
 ## Clone Repository
 
 ```bash
-git clone https://github.com/your-username/your-repository-name.git
+git clone https://github.com/isamadafridi/obstacle-detection
 cd your-repository-name
 ```
 
