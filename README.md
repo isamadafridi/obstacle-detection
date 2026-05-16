@@ -3,17 +3,17 @@
 A real-time obstacle detection system built using **YOLOv8** and trained on a custom obstacle detection dataset.  
 This project detects multiple real-world objects such as vehicles, pedestrians, road obstacles, traffic signs, poles, stairs, dustbins, and more.
 
-The model is optimized for fast inference and deployed as an interactive web demo on Hugging Face Spaces.
+The system is deployed using **FastAPI** and provides an interactive browser-based interface for obstacle detection.
 
 ---
 
-## 🚀 Live Demo
+# 🚀 Live Demo
 
 👉 [Hugging Face Demo](https://huggingface.co/spaces/isamadafridi/obstacle_detection)
 
 ---
 
-## 📂 Dataset
+# 📂 Dataset
 
 Dataset used for training:
 
@@ -23,34 +23,8 @@ Dataset used for training:
 - 25 object classes
 - Real-world outdoor obstacle images
 - Annotated bounding boxes
-- Suitable for autonomous navigation and assistive systems
-
-### Classes
-- Bike
-- Building
-- Car
-- Person
-- Stairs
-- Traffic Sign
-- Electrical Pole
-- Road
-- Motorcycle
-- Dustbin
-- Dog
-- Manhole
-- Tree
-- Guard Rail
-- Pedestrian Crosswalk
-- Truck
-- Bus
-- Bench
-- Traffic Cone
-- Fire Hydrant
-- Traffic Barrel
-- Plant Pot
-- Electrical Box
-- Chair
-- Bicycle Rack
+- YOLO format annotations
+- Suitable for autonomous navigation systems
 
 ---
 
@@ -64,22 +38,20 @@ This project uses **YOLOv8** for object detection.
 ### Why YOLOv8n?
 YOLOv8n was selected because it provides:
 - Fast inference speed
+- Lightweight architecture
 - Low memory usage
-- Lightweight deployment
 - Real-time detection capability
-- Suitable for browser and edge deployment
+- Easy deployment
 
 ---
 
 # ⚙️ Training Configuration
 
-## Training Parameters
-
 | Parameter | Value |
 |---|---|
 | Model | YOLOv8n |
-| Image Size | 512 × 512 |
 | Epochs | 50 |
+| Image Size | 512 × 512 |
 | Batch Size | 8 |
 | Optimizer | MuSGD |
 | Framework | PyTorch |
@@ -89,26 +61,21 @@ YOLOv8n was selected because it provides:
 
 # 🔥 Data Augmentation
 
-The model was trained using built-in YOLOv8 augmentations:
+The model was trained using YOLOv8 built-in augmentations:
 
 - Mosaic augmentation
-- Horizontal flipping
+- Horizontal flip
 - HSV color augmentation
 - Translation augmentation
 - Scaling augmentation
 - Blur augmentation
 - CLAHE enhancement
 
-These augmentations improve:
-- Generalization
-- Robustness
-- Real-world detection performance
+These augmentations improve model robustness and generalization.
 
 ---
 
-# 📈 Training Results
-
-## Final Performance
+# 📈 Model Performance
 
 | Metric | Score |
 |---|---|
@@ -119,47 +86,81 @@ These augmentations improve:
 
 ---
 
-# ✨ Key Features
+# ✨ Features
 
-## Real-Time Detection
-Fast obstacle detection with optimized YOLOv8 inference.
-
-## Multi-Class Detection
-Detects 25 different obstacle categories.
-
-## Browser-Based Inference
-Runs directly in the browser using:
-- ONNX Runtime Web
-- HTML5 Canvas
-- JavaScript
-
-## Lightweight Deployment
-No backend server required for inference.
+- Real-time obstacle detection
+- Multi-class object detection
+- FastAPI backend
+- Interactive frontend
+- YOLOv8 inference
+- Upload and analyze images
+- Lightweight deployment
 
 ---
 
-# 🌐 Deployment
+# 🌐 Tech Stack
 
-The model was converted to ONNX format and deployed on:
+## Backend
+- FastAPI
+- Python
+- Ultralytics YOLOv8
 
-👉 [Hugging Face Spaces](https://huggingface.co/spaces/isamadafridi/obstacle_detection)
-
-### Deployment Stack
+## Frontend
 - HTML5
 - CSS3
-- Vanilla JavaScript
-- ONNX Runtime Web
+- JavaScript
+
+## Deep Learning
+- PyTorch
+- YOLOv8
 
 ---
 
-# 📦 Exporting YOLOv8 to ONNX
+# 📁 Project Structure
 
-```python
-from ultralytics import YOLO
+```bash
+project/
+│
+├── best.pt
+├── main.py
+├── index.html
+├── requirements.txt
+├── static/
+├── uploads/
+└── README.md
+```
 
-model = YOLO("best.pt")
+---
 
-model.export(format="onnx")
+# 📦 Installation
+
+## Clone Repository
+
+```bash
+git clone https://github.com/your-username/your-repository-name.git
+cd your-repository-name
+```
+
+---
+
+# 📥 Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+# ▶️ Run FastAPI Server
+
+```bash
+uvicorn main:app --reload
+```
+
+Server will start at:
+
+```bash
+http://127.0.0.1:8000
 ```
 
 ---
@@ -180,36 +181,28 @@ results = model.predict(
 
 ---
 
-# 📁 Project Structure
+# 🌍 Deployment
 
-```bash
-project/
-│
-├── best.onnx
-├── index.html
-├── app.js
-├── styles.css
-├── README.md
-└── assets/
-```
+This project is deployed on Hugging Face Spaces.
+
+👉 [Live Application](https://huggingface.co/spaces/isamadafridi/obstacle_detection)
 
 ---
 
 # 🚀 Future Improvements
 
 - Video stream detection
-- Webcam inference
+- Webcam integration
 - TensorRT optimization
 - Mobile deployment
-- Faster ONNX acceleration
-- Depth estimation integration
-- Assistive navigation system
+- Edge AI optimization
+- Real-time surveillance system
 
 ---
 
 # 👨‍💻 Developer
 
-## Abdul Samad Afridi
+## Abdul Samad
 
 📧 Email: isamadafridi@gmail.com
 
